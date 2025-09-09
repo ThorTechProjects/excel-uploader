@@ -310,3 +310,10 @@ input[type="text"]:focus {
   /* csak finom default – a konkrét szélességeket injektáljuk (px) */
   width: auto;
 }
+
+.table-wrapper th {
+  user-select: none;
+}
+.table-wrapper th:hover {
+  background: #eaeaea;
+}
