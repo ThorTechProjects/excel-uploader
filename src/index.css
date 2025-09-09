@@ -1,0 +1,312 @@
+:root {
+  --bg: #f3f5f7;
+  --fg: #1f2937;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-700: #1d4ed8;
+  --danger: #ef4444;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --radius: 12px;
+  --shadow: 0 10px 24px rgba(0, 0, 0, .08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/* Layout */
+.page {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+/* Cards & containers */
+.container {
+  width: 100%;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.header {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  margin: 0 0 4px;
+  font-size: 28px;
+  letter-spacing: .2px;
+}
+
+.header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.right {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* Buttons */
+button,
+.btn {
+  appearance: none;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform .02s ease, background .2s ease, box-shadow .2s ease;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, .25);
+}
+
+button:hover,
+.btn:hover {
+  background: var(--primary-700);
+}
+
+button:active,
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  background: #111827;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .16);
+}
+
+.btn-danger {
+  background: var(--danger);
+  box-shadow: 0 6px 14px rgba(239, 68, 68, .25);
+}
+
+/* Inputs */
+label {
+  display: block;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="text"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+}
+
+/* Helper text */
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Alerts */
+.alert {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.alert--error {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+/* Dropzone */
+.dropzone {
+  margin-top: 12px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  text-align: center;
+  background: #fff;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+
+.dropzone:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .06);
+}
+
+.dropzone.drag {
+  border-color: var(--primary);
+  background: #f0f6ff;
+}
+
+.dropzone .hint {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* Hidden file input helper */
+.hidden-input {
+  display: none;
+}
+
+/* Table */
+.table-info {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 16px 0 8px;
+  color: var(--muted);
+}
+
+.table-wrapper {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  background: #fff;
+}
+
+.table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table-wrapper thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f9fc;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
+.table-wrapper td {
+  border-top: 1px solid var(--border);
+  padding: 10px 12px;
+}
+
+.table-wrapper tbody tr:nth-child(odd) {
+  background: #fcfdff;
+}
+
+/* Layout tweaks for Login card */
+.card {
+  width: 100%;
+  max-width: 460px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.card h1 {
+  margin-top: 0;
+}
+
+.card .footer-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ===== Dark mode (op. rendszer beállítás szerint) ===== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    /* háttér */
+    --fg: #e5e7eb;
+    /* alapszöveg */
+    --muted: #9ca3af;
+    /* halvány szöveg */
+    --primary: #3b82f6;
+    --primary-700: #2563eb;
+    --danger: #ef4444;
+    --surface: #0b1220;
+    /* kártya */
+    --border: #1f2937;
+    --shadow: 0 10px 24px rgba(0, 0, 0, .6);
+  }
+
+  .container,
+  .card,
+  .dropzone,
+  .table-wrapper {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .table-wrapper thead th {
+    background: #111827;
+    border-bottom-color: var(--border);
+  }
+
+  .table-wrapper td {
+    border-top-color: var(--border);
+  }
+
+  .table-wrapper tbody tr:nth-child(odd) {
+    background: #0e1525;
+  }
+
+  .alert--error {
+    color: #fecaca;
+    background: #7f1d1d;
+    border-color: #991b1b;
+  }
+}
+
+/* ===== Kicsit jobb tábla-alapok az oszlopszélességhez ===== */
+.table-wrapper table {
+  table-layout: auto;
+  /* engedjük az auto layoutot */
+}
+
+.table-wrapper colgroup col {
+  /* csak finom default – a konkrét szélességeket injektáljuk (px) */
+  width: auto;
+}
