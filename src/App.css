@@ -39,3 +39,108 @@
 .read-the-docs {
   color: #888;
 }
+
+/* === Owner toolbar (Tickets) ============================================ */
+
+:root {
+  --ui-bg: #ffffff;
+  --ui-text: #24292f;
+  --ui-muted: #6b7280;
+  --ui-border: #d0d7de;
+  --ui-accent: #646cff;          /* illeszkedik a Vite logó kék-lilához */
+  --ui-accent-soft: #646cff1a;   /* áttetsző akcent */
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 1rem;
+  justify-content: flex-start;
+}
+
+.toolbar__label {
+  font-size: 14px;
+  color: var(--ui-muted);
+  font-weight: 600;
+  letter-spacing: .2px;
+  user-select: none;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  min-width: 220px;
+  padding: 0.65rem 2.25rem 0.65rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-bg)
+    linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,0)) no-repeat;
+  color: var(--ui-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  transition: border-color 200ms, box-shadow 200ms, transform 60ms;
+
+  /* kis “chevron” jobbra (CSS-only) */
+  background-image:
+    linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0) 50%),
+    radial-gradient(currentColor 1px, transparent 2px);
+  background-position:
+    right 12px center,
+    right 20px center;
+  background-size:
+    10px 10px,
+    8px 8px;
+  background-repeat: no-repeat;
+}
+
+.select:hover {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 4px var(--ui-accent-soft);
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--ui-accent);
+  box-shadow:
+    0 0 0 4px var(--ui-accent-soft),
+    0 1px 2px rgba(0,0,0,0.08);
+  /* Vite logó inspiráció: enyhe glow */
+  filter: drop-shadow(0 0 0.4em #646cff55);
+}
+
+.select:active {
+  transform: translateY(1px);
+}
+
+.select option {
+  font-weight: 500;
+}
+
+/* sötét mód opcionálisan – ha kell */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ui-bg: #0f1116;
+    --ui-text: #e6edf3;
+    --ui-muted: #9aa6b2;
+    --ui-border: #30363d;
+    --ui-accent: #8b90ff;
+    --ui-accent-soft: #8b90ff26;
+  }
+  .select {
+    background: var(--ui-bg);
+    border-color: var(--ui-border);
+    color: var(--ui-text);
+  }
+}
+
+/* kisebb kijelzőn */
+@media (max-width: 640px) {
+  .select {
+    min-width: 180px;
+  }
+}
