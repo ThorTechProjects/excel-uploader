@@ -1,0 +1,95 @@
+/* src/components/Navbar.css */
+
+:root {
+  --tb-bg: linear-gradient(90deg, #101214, #161a1d);
+  --tb-border: #22272b;
+  --tb-text: #e6edf3;
+  --tb-muted: #9aa6b2;
+  --tb-accent: #4cc3ff;
+  --tb-active-bg: rgba(76, 195, 255, 0.12);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: var(--tb-bg);
+  border-bottom: 1px solid var(--tb-border);
+  backdrop-filter: saturate(120%) blur(6px);
+}
+
+.topbar__inner {
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--tb-text);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.brand__logo {
+  font-size: 20px;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.3));
+}
+
+.brand__name {
+  font-size: 15px;
+}
+
+.nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--tb-border);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.nav__link {
+  color: var(--tb-muted);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: color .15s ease, background-color .15s ease, transform .05s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav__link:hover {
+  color: var(--tb-text);
+  background: rgba(255,255,255,0.04);
+}
+
+.nav__link.is-active {
+  color: var(--tb-text);
+  background: var(--tb-active-bg);
+  box-shadow: inset 0 0 0 1px rgba(76,195,255,0.25);
+}
+
+@media (max-width: 720px) {
+  .topbar__inner {
+    padding: 8px 12px;
+  }
+  .brand__name {
+    font-size: 14px;
+  }
+  .nav {
+    gap: 4px;
+    padding: 3px;
+  }
+  .nav__link {
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+}
