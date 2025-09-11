@@ -396,46 +396,50 @@ export default function Uploader() {
     setInfoMsg(`Rendezve: "${header[colIdx] ?? `Oszlop ${colIdx + 1}`}" (${dir === 'asc' ? 'növekvő' : 'csökkenő'}).`);
   };
 
+  /** Mentés Supabase-be: az új adatok hozzáadásával minden sorhoz */
   const saveCurrentSheetToSupabase = async () => {
-    console.log('Mentés gomb megnyomva, a saveCurrentSheetToSupabase funkció elindult.');
     setError('');
-    setInfoMsg('');
+    setInfoMsg('Mentés előkészítése...');
+
+    const { data: { user } } = await supabase.auth.getUser(); // Lehet null, ha nincs bejelentkezve
+
     const wb = workbookRef.current;
     if (!wb || !selectedSheet) {
-      console.error('Mentés leállt! Nincs feltöltött fájl (workbook) vagy nincs kiválasztott munkalap (selectedSheet).');
-      setError('A mentéshez először tölts fel egy fájlt és válassz munkalapot.');
+      setError('A mentéshez először tölts fel egy fájlt.');
       return;
     }
-    console.log('Fájl és munkalap rendben, a mentés folytatódik.');
+
     const ws = wb.Sheets[selectedSheet];
-    if (!ws) {
-      console.error('Hiba: a kiválasztott munkalap nem található a workbookban.');
-      setError('Hiba történt a munkalap beolvasásakor.');
-      return;
-    }
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
-    if (aoa.length <= 1) {
-      setInfoMsg('Nincs menthető adat a munkalapon.');
-      return;
-    }
-    const rows = aoaToObjectsExcelSet(aoa);
+    let rows = aoaToObjectsExcelSet(aoa);
     if (!rows.length) {
       setInfoMsg('Nincs menthető adat a szűrés/rendezés után.');
       return;
     }
-    console.log(`Mentés előkészítve, ${rows.length} sor fog a Supabase-be kerülni.`);
+
+    // --- FONTOS MÓDOSÍTÁS ITT ---
+    // Az összes sor kiegészítése a plusz adatokkal az űrlapról.
+    const enrichedRows = rows.map(row => ({
+      ...row,
+      work_date: workDate,
+      request_count: requestCount,
+      user_id: user ? user.id : null // Ha van user, hozzáadjuk az ID-t
+    }));
+    // ----------------------------
+
     setInfoMsg('Mentés folyamatban...');
+
     try {
       const chunk = 1000;
-      for (let i = 0; i < rows.length; i += chunk) {
-        const slice = rows.slice(i, i + chunk);
+      for (let i = 0; i < enrichedRows.length; i += chunk) {
+        const slice = enrichedRows.slice(i, i + chunk);
         const { error: upErr } = await supabase
           .from('tickets')
           .upsert(slice, { onConflict: 'ticket_number' });
         if (upErr) throw upErr;
       }
-      setInfoMsg(`Sikeres mentés! ${rows.length} sor mentve a Supabase adatbázisba.`);
-      console.log('Sikeres upsert a Supabase-be.');
+
+      setInfoMsg(`Sikeres mentés! ${enrichedRows.length} sor mentve a Supabase adatbázisba.`);
     } catch (e) {
       console.error('Supabase hiba a mentés során:', e);
       setError(`Supabase hiba: ${e.message || e.toString()}`);

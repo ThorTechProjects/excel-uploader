@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient.js';
 
-// Az oszlopok és segédfüggvények változatlanok
+// Az oszlopok, kibővítve a work_date-tel a megjelenítéshez
 const COLUMNS = [
   { key: 'priority',        label: 'Priority' },
   { key: 'service_code',    label: 'Service Code' },
@@ -16,22 +16,44 @@ const COLUMNS = [
   { key: 'pending_reason',  label: 'Pending Reason' },
   { key: 'owner',           label: 'Owner' },
   { key: 'ticket_number',   label: 'Ticket Number' },
+  { key: 'work_date',       label: 'Work Date' },
 ];
 const PAGE_SIZE = 20;
 
-function parseMaybeDate(s) {
-  if (typeof s !== 'string' || !s.trim()) return null;
-  const d = new Date(s);
-  return isNaN(d.valueOf()) ? null : d;
+// === SEGÉDFÜGGVÉNYEK ===
+
+// Bármilyen dátum stringet átalakít YYYY-MM-DD formátumra.
+function formatDateToYYYYMMDD(dateStr) {
+  if (!dateStr) return null;
+  const dateObj = new Date(dateStr);
+  if (isNaN(dateObj.valueOf())) return null;
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-function parseMonthDay(s) {
-  if (typeof s !== 'string') return null;
-  const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\//);
-  if (!m) return null;
-  const month = parseInt(m[1], 10);
-  const day = parseInt(m[2], 10);
-  if (Number.isNaN(month) || Number.isNaN(day)) return null;
+// Összehasonlítja a két dátumot, miután egységes formátumra hozta őket.
+function isWithinTwoDays(currStatDateStr, workDateStr) {
+  if (!currStatDateStr || !workDateStr) return false;
+  const normalizedCurrStatDate = formatDateToYYYYMMDD(currStatDateStr);
+  const normalizedWorkDate = formatDateToYYYYMMDD(workDateStr);
+  if (!normalizedCurrStatDate || !normalizedWorkDate) return false;
+  const currStatTime = new Date(normalizedCurrStatDate).getTime();
+  const workTime = new Date(normalizedWorkDate).getTime();
+  const differenceInMillis = currStatTime - workTime;
+  const differenceInDays = differenceInMillis / (1000 * 60 * 60 * 24);
+  return differenceInDays >= 0 && differenceInDays <= 2;
+}
+
+// Függvény a YYYY-MM-DD formátumú 'work_date' hónapjának és napjának kinyerésére a szűrőhöz.
+function parseWorkDate(dateString) {
+  if (typeof dateString !== 'string') return null;
+  const parts = dateString.split('-');
+  if (parts.length !== 3) return null;
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  if (isNaN(month) || isNaN(day)) return null;
   return { month, day };
 }
 
@@ -42,8 +64,8 @@ function smartCompare(a, b) {
   const isNumA = !Number.isNaN(na) && A !== '' && /^-?\d+(\.\d+)?$/.test(String(A).trim());
   const isNumB = !Number.isNaN(nb) && B !== '' && /^-?\d+(\.\d+)?$/.test(String(B).trim());
   if (isNumA && isNumB) return na === nb ? 0 : (na < nb ? -1 : 1);
-  const da = parseMaybeDate(A), db = parseMaybeDate(B);
-  if (da && db) return da - db;
+  const da = new Date(A), db = new Date(B);
+  if (!isNaN(da.valueOf()) && !isNaN(db.valueOf())) return da - db;
   const sa = String(A).toLowerCase();
   const sb = String(B).toLowerCase();
   if (sa < sb) return -1;
@@ -52,8 +74,8 @@ function smartCompare(a, b) {
 }
 
 const MONTH_LABELS = [
-  '', 'Január','Február','Március','Április','Május','Június',
-  'Július','Augusztus','Szeptember','Október','November','December'
+  '', 'Január', 'Február', 'Március', 'Április', 'Május', 'Június',
+  'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'
 ];
 
 export default function Tickets() {
@@ -76,30 +98,18 @@ export default function Tickets() {
       if (!user) {
         throw new Error("A tartalom megtekintéséhez be kell jelentkezni.");
       }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
       if (profileError && profileError.code !== 'PGRST116') throw profileError;
-      
       const userIsAdmin = profile && profile.role === 'admin';
       setIsAdmin(userIsAdmin);
-
-      // A Supabase RLS policy a háttérben szűr!
       const { data, error: ticketsError } = await supabase.from('tickets').select('*');
       if (ticketsError) throw ticketsError;
-
-      setAllRows(Array.isArray(data) ? data : []);
-
-      // Az owner listát csak akkor töltjük le, ha a felhasználó admin
+      const ticketData = Array.isArray(data) ? data : [];
+      setAllRows(ticketData);
       if (userIsAdmin) {
-        const uniqueOwners = [...new Set((data || []).map(r => r.owner || '').filter(Boolean))].sort();
+        const uniqueOwners = [...new Set(ticketData.map(r => r.owner || '').filter(Boolean))].sort();
         setOwners(uniqueOwners);
       }
-
     } catch (e) {
       console.error(e);
       setError(e.message || String(e));
@@ -113,17 +123,16 @@ export default function Tickets() {
     fetchTicketsAndRole();
   }, [fetchTicketsAndRole]);
 
-  // A kliensoldali szűrés és rendezés logikája változatlan
-    const filteredRows = useMemo(() => {
-    if (!allRows.length || (!month && !day && !owner)) return allRows;
+  const filteredRows = useMemo(() => {
+    if (!allRows) return [];
     const mFilter = month ? parseInt(month, 10) : null;
     const dFilter = day ? parseInt(day, 10) : null;
     const oFilter = owner || null;
-
+    if (!mFilter && !dFilter && !oFilter) return allRows;
     return allRows.filter(r => {
       if (oFilter && r.owner !== oFilter) return false;
       if (mFilter || dFilter) {
-        const md = parseMonthDay(r.curr_stat_date);
+        const md = parseWorkDate(r.work_date);
         if (!md) return false;
         if (mFilter && md.month !== mFilter) return false;
         if (dFilter && md.day !== dFilter) return false;
@@ -140,7 +149,7 @@ export default function Tickets() {
       return dir === 'asc' ? res : -res;
     });
   }, [filteredRows, order]);
-
+  
   const [total, setTotal] = useState(0);
 
   const pageRows = useMemo(() => {
@@ -148,11 +157,29 @@ export default function Tickets() {
     setTotal(newTotal);
     const totalPages = Math.max(1, Math.ceil(newTotal / PAGE_SIZE));
     if (page > totalPages && newTotal > 0) setPage(1);
-
     const from = (page - 1) * PAGE_SIZE;
     return sortedFilteredRows.slice(from, from + PAGE_SIZE);
   }, [sortedFilteredRows, page]);
   
+  const transferStats = useMemo(() => {
+    const sourceRows = filteredRows;
+    if (!sourceRows || sourceRows.length === 0) return { percentage: 0, display: 'N/A' };
+    const totalTicketsInView = sourceRows.length;
+    const uniqueUploadsByDate = new Map();
+    for (const row of sourceRows) {
+      if (row.work_date && row.request_count != null) {
+        uniqueUploadsByDate.set(row.work_date, Number(row.request_count));
+      }
+    }
+    let totalTransferredCount = 0;
+    for (const count of uniqueUploadsByDate.values()) {
+      totalTransferredCount += count;
+    }
+    if (totalTicketsInView === 0) return { percentage: 0, display: '0%' };
+    const percentage = (totalTransferredCount / totalTicketsInView) * 100;
+    return { percentage, display: `${percentage.toFixed(1)}%` };
+  }, [filteredRows]);
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const onHeaderClick = (key) => { setPage(1); setOrder(prev => ({ key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' })); };
   const goPage = (p) => { setPage(Math.min(Math.max(1, p), totalPages)); };
@@ -165,7 +192,6 @@ export default function Tickets() {
     return <div className="container"><h1>Adatbázis — Tickets</h1><p style={{ color: 'red' }}>Hiba: {error}</p></div>;
   }
   
-  // HA NEM ADMIN, és nincsenek sorai, akkor jelenítjük meg az üzenetet
   if (!isAdmin && allRows.length === 0) {
     return (
       <div className="container">
@@ -178,15 +204,10 @@ export default function Tickets() {
     );
   }
 
-// ... a komponens eleje, a 'return' utasításig minden változatlan ...
-
   return (
     <div className="container">
       <h1>Adatbázis — Tickets</h1>
-      
-      {/* --- MÓDOSÍTOTT ESZKÖZTÁR --- */}
       <div className="toolbar" style={{ gap: 12, alignItems: 'center' }}>
-        {/* Az Owner szűrőt csak akkor jelenítjük meg, ha a felhasználó admin */}
         {isAdmin && (
           <>
             <span className="toolbar__label">Owner</span>
@@ -196,28 +217,13 @@ export default function Tickets() {
             </select>
           </>
         )}
-
-        {/* Hónap és Nap szűrők, amik mindenki számára láthatók */}
         <span className="toolbar__label" style={{ marginLeft: isAdmin ? '8px' : '0' }}>Hónap</span>
-        <select
-          className="select"
-          value={month}
-          onChange={(e) => { setMonth(e.target.value); setPage(1); }}
-          aria-label="Hónap szűrő (curr_stat_date)"
-        >
+        <select className="select" value={month} onChange={(e) => { setMonth(e.target.value); setPage(1); }} aria-label="Hónap szűrő (work_date)">
           <option value="">Összes hónap</option>
-          {MONTH_LABELS.map((label, i) => i > 0 && (
-            <option key={i} value={i}>{label}</option>
-          ))}
+          {MONTH_LABELS.map((label, i) => i > 0 && (<option key={i} value={i}>{label}</option>))}
         </select>
-
         <span className="toolbar__label" style={{ marginLeft: '8px' }}>Nap</span>
-        <select
-          className="select"
-          value={day}
-          onChange={(e) => { setDay(e.target.value); setPage(1); }}
-          aria-label="Nap szűrő (curr_stat_date)"
-        >
+        <select className="select" value={day} onChange={(e) => { setDay(e.target.value); setPage(1); }} aria-label="Nap szűrő (work_date)">
           <option value="">Összes nap</option>
           {Array.from({ length: 31 }).map((_, i) => {
             const d = i + 1;
@@ -225,14 +231,13 @@ export default function Tickets() {
           })}
         </select>
       </div>
-
-      {/* Info sáv */}
-      <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-        Találatok: <b>{total}</b>
-        {' '}• Oldal: <b>{page}/{totalPages}</b>
+      <div style={{ fontSize: 12, color: '#666', marginBottom: 8, display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <span>Találatok: <b>{total}</b></span>
+        <span>•</span>
+        <span>Oldal: <b>{page}/{totalPages}</b></span>
+        <span>•</span>
+        <span>Transzferált:<b style={{ color: transferStats.percentage < 10 ? 'green' : 'red', marginLeft: '4px' }}>{transferStats.display}</b></span>
       </div>
-
-      {/* Táblázat */}
       <div className="table-wrapper">
         <table>
           <thead>
@@ -247,21 +252,32 @@ export default function Tickets() {
           </thead>
           <tbody>
             {pageRows.length > 0 ? (
-              pageRows.map((row) => (
-                <tr key={row.ticket_number}>
-                  {COLUMNS.map(col => (
-                    <td key={col.key}>{row[col.key] ?? ''}</td>
-                  ))}
-                </tr>
-              ))
+              pageRows.map((row) => {
+                const isRecent = isWithinTwoDays(row.curr_stat_date, row.work_date);
+                return (
+                  <tr key={row.ticket_number}>
+                    {COLUMNS.map(col => {
+                      const cellStyle = {};
+                      if (col.key === 'curr_stat_date' && isRecent) {
+                        cellStyle.backgroundColor = 'hsl(130, 70%, 94%)';
+                        cellStyle.fontWeight = 'bold';
+                        cellStyle.color = 'hsl(130, 50%, 25%)';
+                        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                            cellStyle.backgroundColor = 'hsl(130, 30%, 20%)';
+                            cellStyle.color = 'hsl(130, 50%, 85%)';
+                        }
+                      }
+                      return (<td key={col.key} style={cellStyle}>{row[col.key] ?? ''}</td>);
+                    })}
+                  </tr>
+                );
+              })
             ) : (
               <tr><td colSpan={COLUMNS.length}>Nincs a szűrésnek megfelelő adat.</td></tr>
             )}
           </tbody>
         </table>
       </div>
-
-      {/* Lapozás */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 12 }}>
         <button onClick={() => goPage(1)} disabled={page <= 1}>«</button>
         <button onClick={() => goPage(page - 1)} disabled={page <= 1}>‹</button>
