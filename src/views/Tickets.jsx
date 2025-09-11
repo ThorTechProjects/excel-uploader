@@ -3,19 +3,19 @@ import { supabase } from '../lib/supabaseClient.js'; // ha nálad default export
 
 // oszlopok (ugyanazok, mint a DB/Excel-ben) – Contact Name kivéve
 const COLUMNS = [
-  { key: 'priority',        label: 'Priority' },
-  { key: 'service_code',    label: 'Service Code' },
-  { key: 'poscode',         label: 'POSCode' },
-  { key: 'airline',         label: 'Airline' },
-  { key: 'request_id',      label: 'Request Id' },
-  { key: 'pnrno',           label: 'PNRNO' },
-  { key: 'flow_type',       label: 'Flow Type' },
-  { key: 'action',          label: 'Action' },
-  { key: 'added',           label: 'Added' },            // TEXT: "M/D/YYYY  h:mm:ss AM/PM"
-  { key: 'curr_stat_date',  label: 'Curr Stat Date' },   // TEXT
-  { key: 'pending_reason',  label: 'Pending Reason' },
-  { key: 'owner',           label: 'Owner' },
-  { key: 'ticket_number',   label: 'Ticket Number' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'service_code', label: 'Service Code' },
+  { key: 'poscode', label: 'POSCode' },
+  { key: 'airline', label: 'Airline' },
+  { key: 'request_id', label: 'Request Id' },
+  { key: 'pnrno', label: 'PNRNO' },
+  { key: 'flow_type', label: 'Flow Type' },
+  { key: 'action', label: 'Action' },
+  { key: 'added', label: 'Added' },            // TEXT: "M/D/YYYY  h:mm:ss AM/PM"
+  { key: 'curr_stat_date', label: 'Curr Stat Date' },   // TEXT
+  { key: 'pending_reason', label: 'Pending Reason' },
+  { key: 'owner', label: 'Owner' },
+  { key: 'ticket_number', label: 'Ticket Number' },
 ];
 
 const PAGE_SIZE = 20;
@@ -60,8 +60,8 @@ function smartCompare(a, b) {
 }
 
 const MONTH_LABELS = [
-  '', 'Január','Február','Március','Április','Május','Június',
-  'Július','Augusztus','Szeptember','Október','November','December'
+  '', 'Január', 'Február', 'Március', 'Április', 'Május', 'Június',
+  'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'
 ];
 
 export default function Tickets() {
@@ -105,36 +105,31 @@ export default function Tickets() {
     }
   }, []);
 
-  // ÖSSZES találat lehúzása (owner szerint) — egyszerű kliens oldali lapozás/rendezés/szűrés
+  // Adatok lehúzása a BIZTONSÁGOS RPC függvényen keresztül
   const fetchTickets = React.useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      let query = supabase
-        .from('tickets')
-        .select('*'); // mindent lehúzunk (owner szerint szűrve)
+      // Itt már nem a .from('tickets').select('*')-ot használjuk,
+      // hanem az 'get_all_tickets_for_admin' nevű RPC függvényt hívjuk meg.
+      const { data, error: err } = await supabase
+        .rpc('get_all_tickets_for_admin');
 
-      if (owner) {
-        query = query.eq('owner', owner);
-      }
-
-      const { data, error: err } = await query;
       if (err) throw err;
 
+      // Fontos: a data itt alapból nem lesz null, ha nincs jogosultság, hanem üres tömb.
       const arr = Array.isArray(data) ? data : [];
       setAllRows(arr);
-      setTotal(arr.length);
-      // page marad; owner váltáskor úgyis 1-re tesszük
+      // A setTotal-t később frissítjük a kliensoldali szűrés után
     } catch (e) {
       console.error(e);
       setError(e.message || String(e));
       setAllRows([]);
-      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [owner]);
+  }, []); // A függőségi listából az 'owner'-t kivettük
 
   React.useEffect(() => { fetchOwners(); }, [fetchOwners]);
   React.useEffect(() => { fetchTickets(); }, [fetchTickets]);
@@ -251,7 +246,7 @@ export default function Tickets() {
         {' '}• Oldal: <b>{page}/{totalPages}</b>
         {' '}• Rendezés: <b>{order.key}</b> ({order.dir})
         {owner ? <> • Owner: <b>{owner}</b></> : null}
-        {month ? <> • Hónap: <b>{MONTH_LABELS[parseInt(month,10)]}</b></> : null}
+        {month ? <> • Hónap: <b>{MONTH_LABELS[parseInt(month, 10)]}</b></> : null}
         {day ? <> • Nap: <b>{day}</b></> : null}
       </div>
 
