@@ -317,3 +317,26 @@ input[type="text"]:focus {
 .table-wrapper th:hover {
   background: #eaeaea;
 }
+
+/* src/index.css végére add hozzá ezt */
+
+.auth-switcher {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.auth-switcher a {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color .2s ease;
+}
+
+.auth-switcher a:hover {
+  color: var(--primary-700);
+  text-decoration: underline;
+}

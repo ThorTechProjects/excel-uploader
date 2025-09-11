@@ -1,9 +1,15 @@
-// src/components/Navbar.jsx
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 import './Navbar.css';
 
 export default function Navbar() {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    // A kijelentkezés után az App.jsx 'onAuthStateChange' eseménye
+    // null-ra állítja a session-t, és automatikusan a login oldalra irányít.
+  };
+
   return (
     <header className="topbar">
       <div className="topbar__inner">
@@ -19,6 +25,10 @@ export default function Navbar() {
           <NavLink to="/tickets" className={({isActive}) => 'nav__link' + (isActive ? ' is-active' : '')}>
             Ticketek
           </NavLink>
+          {/* Kijelentkezés gomb */}
+          <button onClick={handleLogout} className="nav__link" style={{border:0, background:'transparent', cursor:'pointer'}}>
+            Kijelentkezés
+          </button>
         </nav>
       </div>
     </header>
