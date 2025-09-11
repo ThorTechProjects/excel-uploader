@@ -3,20 +3,20 @@ import { supabase } from '../lib/supabaseClient.js';
 
 // Az oszlopok, kibővítve a work_date-tel a megjelenítéshez
 const COLUMNS = [
-  { key: 'priority',        label: 'Priority' },
-  { key: 'service_code',    label: 'Service Code' },
-  { key: 'poscode',         label: 'POSCode' },
-  { key: 'airline',         label: 'Airline' },
-  { key: 'request_id',      label: 'Request Id' },
-  { key: 'pnrno',           label: 'PNRNO' },
-  { key: 'flow_type',       label: 'Flow Type' },
-  { key: 'action',          label: 'Action' },
-  { key: 'added',           label: 'Added' },
-  { key: 'curr_stat_date',  label: 'Curr Stat Date' },
-  { key: 'pending_reason',  label: 'Pending Reason' },
-  { key: 'owner',           label: 'Owner' },
-  { key: 'ticket_number',   label: 'Ticket Number' },
-  { key: 'work_date',       label: 'Work Date' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'service_code', label: 'Service Code' },
+  { key: 'poscode', label: 'POSCode' },
+  { key: 'airline', label: 'Airline' },
+  { key: 'request_id', label: 'Request Id' },
+  { key: 'pnrno', label: 'PNRNO' },
+  { key: 'flow_type', label: 'Flow Type' },
+  { key: 'action', label: 'Action' },
+  { key: 'added', label: 'Added' },
+  { key: 'curr_stat_date', label: 'Curr Stat Date' },
+  { key: 'pending_reason', label: 'Pending Reason' },
+  { key: 'owner', label: 'Owner' },
+  { key: 'ticket_number', label: 'Ticket Number' },
+  { key: 'work_date', label: 'Work Date' },
 ];
 const PAGE_SIZE = 20;
 
@@ -98,18 +98,50 @@ export default function Tickets() {
       if (!user) {
         throw new Error("A tartalom megtekintéséhez be kell jelentkezni.");
       }
-      const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, owner_name') // Fontos: az owner_name-et is lekérjük!
+        .eq('id', user.id)
+        .single();
+
       if (profileError && profileError.code !== 'PGRST116') throw profileError;
+
       const userIsAdmin = profile && profile.role === 'admin';
       setIsAdmin(userIsAdmin);
-      const { data, error: ticketsError } = await supabase.from('tickets').select('*');
+
+      // --- ITT JÖN A MÓDOSÍTÁS ---
+      // Dinamikusan építjük fel a lekérdezést
+      let query = supabase.from('tickets').select('*');
+
+      if (userIsAdmin) {
+        // Ha admin, nem csinálunk semmit, marad az összes ticket lekérése
+      } else {
+        // Ha nem admin, akkor szűrünk az owner_name alapján
+        if (profile && profile.owner_name) {
+          query = query.eq('owner', profile.owner_name);
+        } else {
+          // Ha a usernek nincs owner_name beállítva, akkor ne lásson semmit.
+          // Ezt úgy érjük el, hogy egy lehetetlen feltételre szűrünk.
+          setAllRows([]); // Azonnal beállítjuk üresre, nem is kell a szerverhez fordulni
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data, error: ticketsError } = await query;
+      // --- MÓDOSÍTÁS VÉGE ---
+
       if (ticketsError) throw ticketsError;
+
       const ticketData = Array.isArray(data) ? data : [];
       setAllRows(ticketData);
+
       if (userIsAdmin) {
         const uniqueOwners = [...new Set(ticketData.map(r => r.owner || '').filter(Boolean))].sort();
         setOwners(uniqueOwners);
       }
+
     } catch (e) {
       console.error(e);
       setError(e.message || String(e));
@@ -149,7 +181,7 @@ export default function Tickets() {
       return dir === 'asc' ? res : -res;
     });
   }, [filteredRows, order]);
-  
+
   const [total, setTotal] = useState(0);
 
   const pageRows = useMemo(() => {
@@ -160,7 +192,7 @@ export default function Tickets() {
     const from = (page - 1) * PAGE_SIZE;
     return sortedFilteredRows.slice(from, from + PAGE_SIZE);
   }, [sortedFilteredRows, page]);
-  
+
   const transferStats = useMemo(() => {
     const sourceRows = filteredRows;
     if (!sourceRows || sourceRows.length === 0) return { percentage: 0, display: 'N/A' };
@@ -187,18 +219,18 @@ export default function Tickets() {
   if (loading) {
     return <div className="container"><h1>Adatbázis — Tickets</h1><p>Betöltés és jogosultság ellenőrzése...</p></div>;
   }
-  
+
   if (error) {
     return <div className="container"><h1>Adatbázis — Tickets</h1><p style={{ color: 'red' }}>Hiba: {error}</p></div>;
   }
-  
+
   if (!isAdmin && allRows.length === 0) {
     return (
       <div className="container">
         <h1>Adatbázis — Tickets</h1>
         <div className="alert" style={{ marginTop: '2rem', textAlign: 'center' }}>
           <strong>Nincs megjeleníthető ticket.</strong>
-          <p className="muted" style={{marginTop: '8px'}}>A rendszer a profilodhoz rendelt "Owner" név alapján szűri a listát. Ha úgy gondolod, látnod kellene adatokat, kérjük, vedd fel a kapcsolatot az adminisztrátorral.</p>
+          <p className="muted" style={{ marginTop: '8px' }}>A rendszer a profilodhoz rendelt "Owner" név alapján szűri a listát. Ha úgy gondolod, látnod kellene adatokat, kérjük, vedd fel a kapcsolatot az adminisztrátorral.</p>
         </div>
       </div>
     );
@@ -263,8 +295,8 @@ export default function Tickets() {
                         cellStyle.fontWeight = 'bold';
                         cellStyle.color = 'hsl(130, 50%, 25%)';
                         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                            cellStyle.backgroundColor = 'hsl(130, 30%, 20%)';
-                            cellStyle.color = 'hsl(130, 50%, 85%)';
+                          cellStyle.backgroundColor = 'hsl(130, 30%, 20%)';
+                          cellStyle.color = 'hsl(130, 50%, 85%)';
                         }
                       }
                       return (<td key={col.key} style={cellStyle}>{row[col.key] ?? ''}</td>);
