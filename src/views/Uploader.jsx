@@ -1,3 +1,5 @@
+// src/views/Uploader.jsx
+
 import React from 'react';
 import * as XLSX from 'xlsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
@@ -86,7 +88,8 @@ function formatMDY_hms_AMPM_2space(d) {
   if (h === 0) h = 12;
   const mm = String(m).padStart(2, '0');
   const ss = String(s).padStart(2, '0');
-  return `${M}/${D}/${Y}  ${h}:${mm}:${ss} ${ampm}`; // KÉT szóköz!
+  // JAVÍTVA: Itt egy sima dupla szóköz van
+  return `${M}/${D}/${Y}  ${h}:${mm}:${ss} ${ampm}`;
 }
 /** Megjelenítendő/mentendő stringgé alakít */
 function normalizeDateDisplay(val) {
@@ -192,7 +195,8 @@ function aoaToObjectsExcelSet(aoa) {
   return rows;
 }
 
-export default function Uploader({ onLogout }) {
+// A felesleges 'onLogout' propot kivettük
+export default function Uploader() {
   const [fileName, setFileName] = React.useState('');
   const [tableHtml, setTableHtml] = React.useState('');
   const [error, setError] = React.useState('');
@@ -235,6 +239,9 @@ export default function Uploader({ onLogout }) {
 
   /** Fájl beolvasása */
   const processFile = (file) => {
+    // DIAGNOSZTIKA: Elindult-e a feldolgozás?
+    console.log('processFile elindult:', file.name);
+
     setError('');
     setInfoMsg('');
     if (!allowedExtensions.test(file.name)) {
@@ -246,6 +253,8 @@ export default function Uploader({ onLogout }) {
 
     const reader = new FileReader();
     reader.onload = (e) => {
+      // DIAGNOSZTIKA: Sikeres volt-e a fájl beolvasása?
+      console.log('FileReader onload: a fájl beolvasva.');
       try {
         const data = new Uint8Array(e.target.result);
         const wb = XLSX.read(data, {
@@ -255,14 +264,24 @@ export default function Uploader({ onLogout }) {
         });
         workbookRef.current = wb;
 
+        // DIAGNOSZTIKA: Sikeres volt-e az Excel/CSV parse?
+        console.log('XLSX.read sikeres, workbook objektum:', wb);
+
         const names = wb.SheetNames || [];
         setSheetNames(names);
         const first = names[0] || '';
         setSelectedSheet(first);
 
-        if (first) renderSheet(wb, first);
+        if (first) {
+            renderSheet(wb, first);
+            console.log('renderSheet meghívva a(z)', first, 'munkalappal.');
+        } else {
+            console.warn('Nem található munkalap a fájlban.');
+            setError('A fájl nem tartalmaz egyetlen munkalapot sem.');
+        }
       } catch (err) {
-        console.error(err);
+        // DIAGNOSZTIKA: Hiba a feldolgozás közben
+        console.error('Hiba a try...catch blokkban:', err);
         setError('Hiba történt az Excel/CSV feldolgozása közben. Lehet, hogy a fájl sérült.');
         setTableHtml('');
         setFileName('');
@@ -274,7 +293,8 @@ export default function Uploader({ onLogout }) {
       }
     };
     reader.onerror = (err) => {
-      console.error(err);
+      // DIAGNOSZTIKA: Hiba a fájl olvasása közben
+      console.error('FileReader hiba:', err);
       setError('Hiba történt a fájl olvasása közben.');
       setTableHtml('');
       setFileName('');
@@ -398,19 +418,41 @@ export default function Uploader({ onLogout }) {
 
   /** Mentés Supabase-be: csak Excel-oszlopok, dátum stringként egységesítve */
   const saveCurrentSheetToSupabase = async () => {
+    // --- DIAGNOSZTIKA KEZDETE ---
+    console.log('Mentés gomb megnyomva, a saveCurrentSheetToSupabase funkció elindult.');
     setError('');
     setInfoMsg('');
 
     const wb = workbookRef.current;
-    if (!wb || !selectedSheet) return;
+    if (!wb || !selectedSheet) {
+      console.error('Mentés leállt! Nincs feltöltött fájl (workbook) vagy nincs kiválasztott munkalap (selectedSheet).');
+      setError('A mentéshez először tölts fel egy fájlt és válassz munkalapot.');
+      return;
+    }
+    console.log('Fájl és munkalap rendben, a mentés folytatódik.');
+    // --- DIAGNOSZTIKA VÉGE ---
+
     const ws = wb.Sheets[selectedSheet];
-    if (!ws) return;
+    if (!ws) {
+        console.error('Hiba: a kiválasztott munkalap nem található a workbookban.');
+        setError('Hiba történt a munkalap beolvasásakor.');
+        return;
+    }
 
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
-    if (aoa.length <= 1) { setInfoMsg('Nincs menthető adat.'); return; }
+    if (aoa.length <= 1) {
+      setInfoMsg('Nincs menthető adat a munkalapon.');
+      return;
+    }
 
     const rows = aoaToObjectsExcelSet(aoa);
-    if (!rows.length) { setInfoMsg('Nincs menthető adat a szűrés/rendezés után.'); return; }
+    if (!rows.length) {
+      setInfoMsg('Nincs menthető adat a szűrés/rendezés után.');
+      return;
+    }
+
+    console.log(`Mentés előkészítve, ${rows.length} sor fog a Supabase-be kerülni.`);
+    setInfoMsg('Mentés folyamatban...');
 
     try {
       const chunk = 1000;
@@ -421,10 +463,12 @@ export default function Uploader({ onLogout }) {
           .upsert(slice, { onConflict: 'ticket_number' }); // ticket_number a PRIMARY KEY
         if (upErr) throw upErr;
       }
-      setInfoMsg(`Mentve Supabase-be: ${rows.length} sor (upsert ticket_number alapján).`);
+      setInfoMsg(`Sikeres mentés! ${rows.length} sor mentve a Supabase adatbázisba.`);
+      console.log('Sikeres upsert a Supabase-be.');
     } catch (e) {
-      console.error(e);
+      console.error('Supabase hiba a mentés során:', e);
       setError(`Supabase hiba: ${e.message || e.toString()}`);
+      setInfoMsg(''); // Töröljük a "Mentés folyamatban..." üzenetet hiba esetén
     }
   };
 
@@ -434,9 +478,6 @@ export default function Uploader({ onLogout }) {
         <div className="header">
           <h1>Excel Fájl Feltöltő</h1>
           <p className="muted">Húzd ide a fájlt, vagy kattints a kiválasztáshoz.</p>
-          <div className="right">
-            <button className="btn-danger" onClick={onLogout}>Kijelentkezés</button>
-          </div>
         </div>
 
         {/* Dropzone */}

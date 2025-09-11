@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Uploader from './views/Uploader.jsx';
 import Tickets from './views/Tickets.jsx';
-import Login from './views/Login.jsx';
 import './App.css';
 
 export default function App() {
@@ -15,7 +14,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Uploader />} />
           <Route path="/tickets" element={<Tickets />} />
-          <Route path="/login" element={<Login />} />
+          {/* A /login útvonalat eltávolítottuk */}
         </Routes>
       </main>
     </BrowserRouter>

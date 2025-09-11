@@ -19,9 +19,6 @@ export default function Navbar() {
           <NavLink to="/tickets" className={({isActive}) => 'nav__link' + (isActive ? ' is-active' : '')}>
             Ticketek
           </NavLink>
-          <NavLink to="/login" className={({isActive}) => 'nav__link' + (isActive ? ' is-active' : '')}>
-            Belépés
-          </NavLink>
         </nav>
       </div>
     </header>
