@@ -340,3 +340,34 @@ input[type="text"]:focus {
   color: var(--primary-700);
   text-decoration: underline;
 }
+
+/* Dátum input alap stílusok */
+.date-input {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface, #fff);
+  color: var(--fg, #000);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-family: inherit; /* Örökölje a body betűtípusát */
+  font-size: 14px;
+}
+
+/* A kis naptár ikon stílusa (Chrome/Edge/Opera) */
+.date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity .2s ease;
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Sötét módban az ikon színe fehér lesz, hogy látható maradjon */
+@media (prefers-color-scheme: dark) {
+  .date-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+}

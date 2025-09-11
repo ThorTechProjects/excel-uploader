@@ -1,11 +1,12 @@
 // src/views/Uploader.jsx
 
-import React from 'react';
+import React, { useState, useCallback, useRef } from 'react'; // <-- Kibővítve a szükséges hook-okkal
 import * as XLSX from 'xlsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import DataTable from '../components/DataTable.jsx';
 import { supabase } from '../lib/supabaseClient.js';
 
+// --- A MEGLÉVŐ SEGÉDFÜGGVÉNYEID VÁLTOZATLANUL MARADNAK ---
 /** ===== Oszlopszélesség ===== */
 function computeColWidthsFromAOA(aoa, charPx = 8, minPx = 64, maxPx = 360) {
   const maxCols = aoa.reduce((m, row) => Math.max(m, row?.length || 0), 0);
@@ -88,7 +89,6 @@ function formatMDY_hms_AMPM_2space(d) {
   if (h === 0) h = 12;
   const mm = String(m).padStart(2, '0');
   const ss = String(s).padStart(2, '0');
-  // JAVÍTVA: Itt egy sima dupla szóköz van
   return `${M}/${D}/${Y}  ${h}:${mm}:${ss} ${ampm}`;
 }
 /** Megjelenítendő/mentendő stringgé alakít */
@@ -195,53 +195,63 @@ function aoaToObjectsExcelSet(aoa) {
   return rows;
 }
 
-// A felesleges 'onLogout' propot kivettük
+
 export default function Uploader() {
+  // --- ÚJ ÁLLAPOTOK A KÉTLÉPCSŐS FOLYAMATHOZ ---
+  const [step, setStep] = useState(1);
+  const [workDate, setWorkDate] = useState(new Date().toISOString().split('T')[0]);
+  const [requestCount, setRequestCount] = useState('');
+  const [formError, setFormError] = useState('');
+
+  // --- A MEGLÉVŐ ÁLLAPOTAID VÁLTOZATLANUL ---
   const [fileName, setFileName] = React.useState('');
   const [tableHtml, setTableHtml] = React.useState('');
   const [error, setError] = React.useState('');
   const [sheetName, setSheetName] = React.useState('');
   const [rowCount, setRowCount] = React.useState(null);
   const [isDragging, setIsDragging] = React.useState(false);
-
   const [sheetNames, setSheetNames] = React.useState([]);
   const [selectedSheet, setSelectedSheet] = React.useState('');
   const [infoMsg, setInfoMsg] = React.useState('');
-
-  // Rendezés UI
   const [columns, setColumns] = React.useState([]);
   const [sortColIdx, setSortColIdx] = React.useState(0);
   const [sortDir, setSortDir] = React.useState('asc');
-
   const workbookRef = React.useRef(null);
   const fileInputRef = React.useRef(null);
   const allowedExtensions = /\.(xlsx|xls|csv)$/i;
 
-  /** Renderelés */
+  // --- ÚJ FUNKCIÓ: LÉPÉS A MÁSODIK OLDALRA ---
+  const handleNextStep = () => {
+    setFormError('');
+    if (!workDate) {
+      setFormError('Kérlek, add meg a munka dátumát!');
+      return;
+    }
+    if (!requestCount || isNaN(Number(requestCount)) || Number(requestCount) < 0) {
+      setFormError('Kérlek, adj meg egy érvényes, nem negatív számot a requestek számához!');
+      return;
+    }
+    setStep(2);
+  };
+
+  // --- A MEGLÉVŐ FUNKCIÓID VÁLTOZATLANUL ---
   const renderSheet = React.useCallback((wb, sheet) => {
     if (!wb || !sheet) return;
     const ws = wb.Sheets[sheet];
     if (!ws) return;
-
     let html = XLSX.utils.sheet_to_html(ws, { raw: true });
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
-
     const header = aoa[0] || [];
-    setColumns(header.map((h, i) => (h == null || h === '' ? `Oszlop ${i+1}` : String(h))));
-
+    setColumns(header.map((h, i) => (h == null || h === '' ? `Oszlop ${i + 1}` : String(h))));
     const widthsPx = computeColWidthsFromAOA(aoa);
     html = injectColgroup(html, widthsPx);
-
     setTableHtml(html);
     setSheetName(sheet);
     setRowCount(countDataRows(aoa));
   }, []);
 
-  /** Fájl beolvasása */
   const processFile = (file) => {
-    // DIAGNOSZTIKA: Elindult-e a feldolgozás?
     console.log('processFile elindult:', file.name);
-
     setError('');
     setInfoMsg('');
     if (!allowedExtensions.test(file.name)) {
@@ -250,10 +260,8 @@ export default function Uploader() {
     }
     setFileName(file.name);
     setTableHtml('<p class="muted" style="text-align:center; padding:10px 0;">Feldolgozás...</p>');
-
     const reader = new FileReader();
     reader.onload = (e) => {
-      // DIAGNOSZTIKA: Sikeres volt-e a fájl beolvasása?
       console.log('FileReader onload: a fájl beolvasva.');
       try {
         const data = new Uint8Array(e.target.result);
@@ -263,24 +271,19 @@ export default function Uploader() {
           cellDates: false,
         });
         workbookRef.current = wb;
-
-        // DIAGNOSZTIKA: Sikeres volt-e az Excel/CSV parse?
         console.log('XLSX.read sikeres, workbook objektum:', wb);
-
         const names = wb.SheetNames || [];
         setSheetNames(names);
         const first = names[0] || '';
         setSelectedSheet(first);
-
         if (first) {
-            renderSheet(wb, first);
-            console.log('renderSheet meghívva a(z)', first, 'munkalappal.');
+          renderSheet(wb, first);
+          console.log('renderSheet meghívva a(z)', first, 'munkalappal.');
         } else {
-            console.warn('Nem található munkalap a fájlban.');
-            setError('A fájl nem tartalmaz egyetlen munkalapot sem.');
+          console.warn('Nem található munkalap a fájlban.');
+          setError('A fájl nem tartalmaz egyetlen munkalapot sem.');
         }
       } catch (err) {
-        // DIAGNOSZTIKA: Hiba a feldolgozás közben
         console.error('Hiba a try...catch blokkban:', err);
         setError('Hiba történt az Excel/CSV feldolgozása közben. Lehet, hogy a fájl sérült.');
         setTableHtml('');
@@ -293,7 +296,6 @@ export default function Uploader() {
       }
     };
     reader.onerror = (err) => {
-      // DIAGNOSZTIKA: Hiba a fájl olvasása közben
       console.error('FileReader hiba:', err);
       setError('Hiba történt a fájl olvasása közben.');
       setTableHtml('');
@@ -312,7 +314,6 @@ export default function Uploader() {
     if (files && files.length > 0) processFile(files[0]);
   };
 
-  /** Drag & Drop */
   const onDrop = (e) => {
     e.preventDefault(); e.stopPropagation();
     setIsDragging(false);
@@ -325,7 +326,6 @@ export default function Uploader() {
   const onDragOver = (e) => { e.preventDefault(); e.stopPropagation(); if (!isDragging) setIsDragging(true); };
   const onDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
 
-  /** Sheet váltás */
   const onSelectSheet = (e) => {
     const name = e.target.value;
     setSelectedSheet(name);
@@ -333,38 +333,29 @@ export default function Uploader() {
     if (workbookRef.current && name) renderSheet(workbookRef.current, name);
   };
 
-  /** Duplikátum törlés: Ticket Number alapján */
   const removeDuplicatesByTicketNumber = () => {
     setError('');
     setInfoMsg('');
-
     const wb = workbookRef.current;
     if (!wb || !selectedSheet) return;
     const ws = wb.Sheets[selectedSheet];
     if (!ws) return;
-
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
     if (!aoa.length) return;
-
     const header = aoa[0] || [];
     const { ticket, added, currStatDate } = findColumnIndexes(header);
-
     if (ticket == null) {
       setError('Nem található a "Ticket Number" oszlop a fejlécben.');
       return;
     }
-
     const seen = new Set();
     const newAOA = [header];
     let deleted = 0;
-
     for (let r = 1; r < aoa.length; r++) {
       const row = aoa[r] || [];
       const tRaw = row[ticket];
       const t = tRaw == null ? '' : String(tRaw).trim();
-
       if (t === '') { newAOA.push(row); continue; }
-
       if (seen.has(t)) {
         deleted++;
       } else {
@@ -372,57 +363,43 @@ export default function Uploader() {
         newAOA.push(row);
       }
     }
-
     const newWS = XLSX.utils.aoa_to_sheet(newAOA);
     enforceDateColumnsFormat(newWS, header, [added, currStatDate]);
     wb.Sheets[selectedSheet] = newWS;
-
     renderSheet(wb, selectedSheet);
     setInfoMsg(`Kész: "${header[ticket]}" alapján ${deleted} duplikált sort töröltem (első előfordulások megmaradtak).`);
   };
 
-  /** Rendezés kiválasztott oszlop szerint */
   const sortBySelectedColumn = () => {
     setError('');
     setInfoMsg('');
-
     const wb = workbookRef.current;
     if (!wb || !selectedSheet) return;
     const ws = wb.Sheets[selectedSheet];
     if (!ws) return;
-
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
     if (aoa.length <= 1) return;
-
     const header = aoa[0];
     const rows = aoa.slice(1);
     const colIdx = Number(sortColIdx) || 0;
     const dir = sortDir === 'desc' ? 'desc' : 'asc';
-
     rows.sort((ra, rb) => {
       const res = smartCompare(ra[colIdx], rb[colIdx]);
       return dir === 'asc' ? res : -res;
     });
-
     const newAOA = [header, ...rows];
     const newWS = XLSX.utils.aoa_to_sheet(newAOA);
-
     const { added, currStatDate } = findColumnIndexes(header);
     enforceDateColumnsFormat(newWS, header, [added, currStatDate]);
-
     wb.Sheets[selectedSheet] = newWS;
-
     renderSheet(wb, selectedSheet);
-    setInfoMsg(`Rendezve: "${header[colIdx] ?? `Oszlop ${colIdx+1}`}" (${dir === 'asc' ? 'növekvő' : 'csökkenő'}).`);
+    setInfoMsg(`Rendezve: "${header[colIdx] ?? `Oszlop ${colIdx + 1}`}" (${dir === 'asc' ? 'növekvő' : 'csökkenő'}).`);
   };
 
-  /** Mentés Supabase-be: csak Excel-oszlopok, dátum stringként egységesítve */
   const saveCurrentSheetToSupabase = async () => {
-    // --- DIAGNOSZTIKA KEZDETE ---
     console.log('Mentés gomb megnyomva, a saveCurrentSheetToSupabase funkció elindult.');
     setError('');
     setInfoMsg('');
-
     const wb = workbookRef.current;
     if (!wb || !selectedSheet) {
       console.error('Mentés leállt! Nincs feltöltött fájl (workbook) vagy nincs kiválasztott munkalap (selectedSheet).');
@@ -430,37 +407,31 @@ export default function Uploader() {
       return;
     }
     console.log('Fájl és munkalap rendben, a mentés folytatódik.');
-    // --- DIAGNOSZTIKA VÉGE ---
-
     const ws = wb.Sheets[selectedSheet];
     if (!ws) {
-        console.error('Hiba: a kiválasztott munkalap nem található a workbookban.');
-        setError('Hiba történt a munkalap beolvasásakor.');
-        return;
+      console.error('Hiba: a kiválasztott munkalap nem található a workbookban.');
+      setError('Hiba történt a munkalap beolvasásakor.');
+      return;
     }
-
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
     if (aoa.length <= 1) {
       setInfoMsg('Nincs menthető adat a munkalapon.');
       return;
     }
-
     const rows = aoaToObjectsExcelSet(aoa);
     if (!rows.length) {
       setInfoMsg('Nincs menthető adat a szűrés/rendezés után.');
       return;
     }
-
     console.log(`Mentés előkészítve, ${rows.length} sor fog a Supabase-be kerülni.`);
     setInfoMsg('Mentés folyamatban...');
-
     try {
       const chunk = 1000;
       for (let i = 0; i < rows.length; i += chunk) {
         const slice = rows.slice(i, i + chunk);
         const { error: upErr } = await supabase
           .from('tickets')
-          .upsert(slice, { onConflict: 'ticket_number' }); // ticket_number a PRIMARY KEY
+          .upsert(slice, { onConflict: 'ticket_number' });
         if (upErr) throw upErr;
       }
       setInfoMsg(`Sikeres mentés! ${rows.length} sor mentve a Supabase adatbázisba.`);
@@ -468,139 +439,191 @@ export default function Uploader() {
     } catch (e) {
       console.error('Supabase hiba a mentés során:', e);
       setError(`Supabase hiba: ${e.message || e.toString()}`);
-      setInfoMsg(''); // Töröljük a "Mentés folyamatban..." üzenetet hiba esetén
+      setInfoMsg('');
     }
   };
+
 
   return (
     <div className="page">
       <div className="container">
-        <div className="header">
-          <h1>Excel Fájl Feltöltő</h1>
-          <p className="muted">Húzd ide a fájlt, vagy kattints a kiválasztáshoz.</p>
-        </div>
 
-        {/* Dropzone */}
-        <div
-          className={`dropzone${isDragging ? ' drag' : ''}`}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onClick={() => fileInputRef.current?.click()}
-          role="button"
-          aria-label="Fájl kiválasztása vagy idehúzása"
-        >
-          <div style={{fontWeight:700, fontSize:16}}>Húzd ide a fájlt</div>
-          <div className="hint">.xlsx, .xls vagy .csv</div>
-          <div style={{marginTop:12}}>
-            <span className="btn">Válassz fájlt</span>
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden-input"
-            onChange={handleFileChange}
-            accept=".xlsx,.xls,.csv"
-          />
-        </div>
+        {/* --- 1. LÉPÉS: ADATBEKÉRŐ --- */}
+        {step === 1 && (
+          <div>
+            <div className="header">
+              <h1>Munka Adatainak Rögzítése</h1>
+              <p className="muted">Kérlek, add meg a munkavégzés adatait a folytatáshoz.</p>
+            </div>
 
-        {/* Sheet-választó + Műveletek */}
-        {sheetName && (
-          <div style={{marginTop:16, display:'flex', gap:12, alignItems:'center', flexWrap:'wrap'}}>
-            {sheetNames.length > 1 && (
-              <>
-                <label htmlFor="sheetSel" style={{margin:0}}>Munkalap:</label>
-                <select
-                  id="sheetSel"
-                  value={selectedSheet}
-                  onChange={onSelectSheet}
-                  style={{
-                    border:'1px solid var(--border)',
-                    background:'var(--surface)',
-                    color:'var(--fg)',
-                    padding:'8px 10px',
-                    borderRadius:'8px',
-                    outline:'none'
-                  }}
-                >
-                  {sheetNames.map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </>
-            )}
+            <form onSubmit={(e) => { e.preventDefault(); handleNextStep(); }}>
+              <label htmlFor="workDate">Melyik nap kaptad a munkát?</label>
 
-            {/* Rendezés UI */}
-            {columns.length > 0 && (
-              <>
-                <label htmlFor="sortCol" style={{margin:0}}>Rendezés oszlop:</label>
-                <select
-                  id="sortCol"
-                  value={sortColIdx}
-                  onChange={(e) => setSortColIdx(Number(e.target.value))}
-                  style={{
-                    border:'1px solid var(--border)',
-                    background:'var(--surface)',
-                    color:'var(--fg)',
-                    padding:'8px 10px',
-                    borderRadius:'8px',
-                    outline:'none'
-                  }}
-                >
-                  {columns.map((name, i) => (
-                    <option key={i} value={i}>{name}</option>
-                  ))}
-                </select>
+              <input
+                id="workDate"
+                type="date"
+                className="date-input"
+                value={workDate}
+                onChange={(e) => setWorkDate(e.target.value)}
+                required
+              />
+              <label htmlFor="requestCount">Hány requestet (dokumentumot) transzferáltál?</label>
+              <input
+                id="requestCount"
+                type="number"
+                value={requestCount}
+                onChange={(e) => setRequestCount(e.target.value)}
+                placeholder="Pl. 150"
+                required
+                min="0"
+                style={{
+                  width: '100%',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface, #fff)',
+                  color: 'var(--fg, #000)',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                }}
+              />
 
-                <select
-                  value={sortDir}
-                  onChange={(e) => setSortDir(e.target.value)}
-                  style={{
-                    border:'1px solid var(--border)',
-                    background:'var(--surface)',
-                    color:'var(--fg)',
-                    padding:'8px 10px',
-                    borderRadius:'8px',
-                    outline:'none'
-                  }}
-                >
-                  <option value="asc">Növekvő</option>
-                  <option value="desc">Csökkenő</option>
-                </select>
+              {formError && <ErrorMessage message={formError} />}
 
-                <button className="btn-secondary" onClick={sortBySelectedColumn}>
-                  Rendezés
-                </button>
-              </>
-            )}
-
-            <button
-              className="btn-secondary"
-              onClick={removeDuplicatesByTicketNumber}
-              title='Azonos "Ticket Number" sorokból csak az első marad, a többi törlődik. Üreseket nem deduplikálunk.'
-            >
-              Duplikátumok törlése (Ticket Number)
-            </button>
-
-            <button className="btn" onClick={saveCurrentSheetToSupabase}>
-              Mentés Supabase-be
-            </button>
-
-            {rowCount != null && <span className="muted">Jelenlegi sorok: {rowCount}</span>}
+              <div className="actions" style={{ marginTop: '24px' }}>
+                <button type="submit" className="btn">Tovább a fájlfeltöltéshez</button>
+              </div>
+            </form>
           </div>
         )}
 
-        {/* Üzenetek */}
-        {error && <ErrorMessage message={error} />}
-        {infoMsg && <div className="alert" style={{ borderColor: 'var(--border)' }}>{infoMsg}</div>}
+        {/* --- 2. LÉPÉS: FÁJLFELTÖLTŐ (A TE MEGLÉVŐ KÓDOD) --- */}
+        {step === 2 && (
+          <div>
+            <div className="header">
+              <h1>Excel Fájl Feltöltő</h1>
+              <p className="muted">Húzd ide a fájlt, vagy kattints a kiválasztáshoz.</p>
+              <div className="right">
+                <button className="btn-secondary" onClick={() => setStep(1)}>Vissza</button>
+              </div>
+            </div>
 
-        {/* Tábla */}
-        <div style={{marginTop: 18}}>
-          <DataTable
-            htmlString={tableHtml}
-            fileName={fileName}
-            sheetName={sheetName}
-            rowCount={rowCount}
-          />
-        </div>
+            <div
+              className={`dropzone${isDragging ? ' drag' : ''}`}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onClick={() => fileInputRef.current?.click()}
+              role="button"
+              aria-label="Fájl kiválasztása vagy idehúzása"
+            >
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Húzd ide a fájlt</div>
+              <div className="hint">.xlsx, .xls vagy .csv</div>
+              <div style={{ marginTop: 12 }}>
+                <span className="btn">Válassz fájlt</span>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden-input"
+                onChange={handleFileChange}
+                accept=".xlsx,.xls,.csv"
+              />
+            </div>
+
+            {sheetName && (
+              <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                {sheetNames.length > 1 && (
+                  <>
+                    <label htmlFor="sheetSel" style={{ margin: 0 }}>Munkalap:</label>
+                    <select
+                      id="sheetSel"
+                      value={selectedSheet}
+                      onChange={onSelectSheet}
+                      style={{
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface, #fff)',
+                        color: 'var(--fg, #000)',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        outline: 'none'
+                      }}
+                    >
+                      {sheetNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </>
+                )}
+
+                {columns.length > 0 && (
+                  <>
+                    <label htmlFor="sortCol" style={{ margin: 0 }}>Rendezés oszlop:</label>
+                    <select
+                      id="sortCol"
+                      value={sortColIdx}
+                      onChange={(e) => setSortColIdx(Number(e.target.value))}
+                      style={{
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface, #fff)',
+                        color: 'var(--fg, #000)',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        outline: 'none'
+                      }}
+                    >
+                      {columns.map((name, i) => (
+                        <option key={i} value={i}>{name}</option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={sortDir}
+                      onChange={(e) => setSortDir(e.target.value)}
+                      style={{
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface, #fff)',
+                        color: 'var(--fg, #000)',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="asc">Növekvő</option>
+                      <option value="desc">Csökkenő</option>
+                    </select>
+
+                    <button className="btn-secondary" onClick={sortBySelectedColumn}>
+                      Rendezés
+                    </button>
+                  </>
+                )}
+
+                <button
+                  className="btn-secondary"
+                  onClick={removeDuplicatesByTicketNumber}
+                  title='Azonos "Ticket Number" sorokból csak az első marad, a többi törlődik. Üreseket nem deduplikálunk.'
+                >
+                  Duplikátumok törlése (Ticket Number)
+                </button>
+
+                <button className="btn" onClick={saveCurrentSheetToSupabase}>
+                  Mentés Supabase-be
+                </button>
+
+                {rowCount != null && <span className="muted">Jelenlegi sorok: {rowCount}</span>}
+              </div>
+            )}
+
+            {error && <ErrorMessage message={error} />}
+            {infoMsg && <div className="alert" style={{ borderColor: 'var(--border)' }}>{infoMsg}</div>}
+
+            <div style={{ marginTop: 18 }}>
+              <DataTable
+                htmlString={tableHtml}
+                fileName={fileName}
+                sheetName={sheetName}
+                rowCount={rowCount}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
