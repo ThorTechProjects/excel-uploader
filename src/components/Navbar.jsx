@@ -1,13 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // useEffect és useState hozzáadása
 import { NavLink } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import './Navbar.css';
 
 export default function Navbar() {
+  const [userEmail, setUserEmail] = useState(null);
+
+  useEffect(() => {
+    // Lekérjük az aktuális felhasználó adatait, amikor a komponens betöltődik
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // A kijelentkezés után az App.jsx 'onAuthStateChange' eseménye
-    // null-ra állítja a session-t, és automatikusan a login oldalra irányít.
   };
 
   return (
@@ -25,11 +37,15 @@ export default function Navbar() {
           <NavLink to="/tickets" className={({isActive}) => 'nav__link' + (isActive ? ' is-active' : '')}>
             Ticketek
           </NavLink>
-          {/* Kijelentkezés gomb */}
-          <button onClick={handleLogout} className="nav__link" style={{border:0, background:'transparent', cursor:'pointer'}}>
+        </nav>
+
+        {/* ÚJ RÉSZ: Felhasználói menü */}
+        <div className="user-menu" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {userEmail && <span style={{ color: 'var(--tb-muted)', fontSize: '13px' }}>{userEmail}</span>}
+          <button onClick={handleLogout} className="btn-secondary" style={{ padding: '7px 12px', fontSize: '13px' }}>
             Kijelentkezés
           </button>
-        </nav>
+        </div>
       </div>
     </header>
   );
