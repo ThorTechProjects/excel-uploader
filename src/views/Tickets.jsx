@@ -178,25 +178,58 @@ export default function Tickets() {
     );
   }
 
+// ... a komponens eleje, a 'return' utasításig minden változatlan ...
+
   return (
     <div className="container">
       <h1>Adatbázis — Tickets</h1>
       
-      {/* Az eszközsort csak akkor jelenítjük meg, ha a felhasználó admin */}
-      {isAdmin && (
-        <div className="toolbar" style={{ gap: 12 }}>
-          <span className="toolbar__label">Owner</span>
-          <select className="select" value={owner} onChange={(e) => { setOwner(e.target.value); setPage(1); }}>
-            <option value="">Összes owner</option>
-            {owners.map(o => (<option key={o} value={o}>{o}</option>))}
-          </select>
-          {/* Itt lehetnének a további szűrők (hónap, nap) */}
-        </div>
-      )}
+      {/* --- MÓDOSÍTOTT ESZKÖZTÁR --- */}
+      <div className="toolbar" style={{ gap: 12, alignItems: 'center' }}>
+        {/* Az Owner szűrőt csak akkor jelenítjük meg, ha a felhasználó admin */}
+        {isAdmin && (
+          <>
+            <span className="toolbar__label">Owner</span>
+            <select className="select" value={owner} onChange={(e) => { setOwner(e.target.value); setPage(1); }}>
+              <option value="">Összes owner</option>
+              {owners.map(o => (<option key={o} value={o}>{o}</option>))}
+            </select>
+          </>
+        )}
+
+        {/* Hónap és Nap szűrők, amik mindenki számára láthatók */}
+        <span className="toolbar__label" style={{ marginLeft: isAdmin ? '8px' : '0' }}>Hónap</span>
+        <select
+          className="select"
+          value={month}
+          onChange={(e) => { setMonth(e.target.value); setPage(1); }}
+          aria-label="Hónap szűrő (curr_stat_date)"
+        >
+          <option value="">Összes hónap</option>
+          {MONTH_LABELS.map((label, i) => i > 0 && (
+            <option key={i} value={i}>{label}</option>
+          ))}
+        </select>
+
+        <span className="toolbar__label" style={{ marginLeft: '8px' }}>Nap</span>
+        <select
+          className="select"
+          value={day}
+          onChange={(e) => { setDay(e.target.value); setPage(1); }}
+          aria-label="Nap szűrő (curr_stat_date)"
+        >
+          <option value="">Összes nap</option>
+          {Array.from({ length: 31 }).map((_, i) => {
+            const d = i + 1;
+            return <option key={d} value={d}>{d}</option>;
+          })}
+        </select>
+      </div>
 
       {/* Info sáv */}
       <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
         Találatok: <b>{total}</b>
+        {' '}• Oldal: <b>{page}/{totalPages}</b>
       </div>
 
       {/* Táblázat */}
@@ -205,7 +238,7 @@ export default function Tickets() {
           <thead>
             <tr>
               {COLUMNS.map(col => (
-                <th key={col.key} onClick={() => onHeaderClick(col.key)} style={{ cursor: 'pointer' }}>
+                <th key={col.key} onClick={() => onHeaderClick(col.key)} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   {col.label}
                   {order.key === col.key ? (order.dir === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
