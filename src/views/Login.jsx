@@ -56,6 +56,10 @@ export default function Login() {
             disabled={loading}
           />
 
+          <div style={{ textAlign: 'right', fontSize: '12px', marginTop: '8px' }}>
+            <Link to="/forgot-password" style={{ color: 'var(--muted)' }}>Elfelejtett jelszó?</Link>
+          </div>
+
           {error && <ErrorMessage message={error} />}
 
           <div className="actions" style={{ marginTop: 12 }}>
