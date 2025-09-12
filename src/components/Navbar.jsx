@@ -31,11 +31,14 @@ export default function Navbar() {
         </div>
 
         <nav className="nav">
-          <NavLink to="/" end className={({isActive}) => 'nav__link' + (isActive ? ' is-active' : '')}>
+          <NavLink to="/" end className={({ isActive }) => 'nav__link' + (isActive ? ' is-active' : '')}>
             Feltöltés
           </NavLink>
-          <NavLink to="/tickets" className={({isActive}) => 'nav__link' + (isActive ? ' is-active' : '')}>
+          <NavLink to="/tickets" className={({ isActive }) => 'nav__link' + (isActive ? ' is-active' : '')}>
             Ticketek
+          </NavLink>
+          <NavLink to="/help" className={({ isActive }) => 'nav__link' + (isActive ? ' is-active' : '')}>
+            Help
           </NavLink>
         </nav>
 

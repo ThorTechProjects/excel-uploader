@@ -8,6 +8,9 @@ import Login from './views/Login.jsx';
 import Registration from './views/Registration.jsx';
 import ForgotPassword from './views/ForgotPassword.jsx';
 import UpdatePassword from './views/UpdatePassword.jsx';
+import Help from './views/Help.jsx';
+
+
 import './App.css';
 
 // Létrehozunk egy belső komponenst, ami már hozzáfér a router adataihoz (pl. a helyzethez)
@@ -26,6 +29,7 @@ function AppLayout({ session }) {
       <main className="page-content">
         <Routes>
           <Route path="/" element={session ? <Uploader /> : <Navigate to="/login" />} />
+          <Route path="/help" element={session ? <Help /> : <Navigate to="/login" />} />
           <Route path="/tickets" element={session ? <Tickets /> : <Navigate to="/login" />} />
           <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
           <Route path="/register" element={!session ? <Registration /> : <Navigate to="/" />} />
